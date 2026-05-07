@@ -1,0 +1,17 @@
+ ⨯ ./components/CornerstoneStackViewerLab.tsx
+Error: Failed to read source code from C:\Users\21258\Documents\New project\components\CornerstoneStackViewerLab.tsx
+
+Caused by:
+    系统找不到指定的文件。 (os error 2)
+
+Import trace for requested module:
+./components/CornerstoneStackViewerLab.tsx
+ ⨯ ./components/CornerstoneStackViewerLab.tsx
+Error: Failed to read source code from C:\Users\21258\Documents\New project\components\CornerstoneStackViewerLab.tsx
+
+Caused by:
+    系统找不到指定的文件。 (os error 2)
+
+Import trace for requested module:
+./components/CornerstoneStackViewerLab.tsx
+./app/viewer-lab/ct-stack/page.tsx

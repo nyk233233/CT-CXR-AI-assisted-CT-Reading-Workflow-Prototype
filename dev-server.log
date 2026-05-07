@@ -517,3 +517,292 @@
  GET /api/dicom/local/lidc_case_002/182 200 in 20ms
  GET /api/dicom/local/lidc_case_002/199 200 in 32ms
  GET /api/dicom/local/lidc_case_002/167 200 in 29ms
+ ✓ Compiled in 856ms (2483 modules)
+ ✓ Compiled in 519ms (2483 modules)
+ ✓ Compiled in 641ms (1119 modules)
+ ✓ Compiled in 510ms (2483 modules)
+ ✓ Compiled in 510ms (2497 modules)
+ GET /viewer-lab/ct-stack 200 in 209ms
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 295ms (1371 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 431ms
+ ✓ Compiled /api/dicom/local/[caseId]/[stackIndex] in 167ms (1373 modules)
+ GET /api/dicom/local/lidc_case_002/130 200 in 232ms
+ ○ Compiling /workstation/[studyId] ...
+ ✓ Compiled /workstation/[studyId] in 824ms (1387 modules)
+ GET /viewer-lab/ct-stack 200 in 1284ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 1284ms
+ ✓ Compiled /api/dicom/local/[caseId]/[stackIndex] in 167ms (1389 modules)
+ GET /workstation/study-lidc-002 200 in 1766ms
+ GET /viewer-lab/ct-stack 200 in 919ms
+ GET /api/dicom/local/lidc_case_002/130 200 in 740ms
+ GET /viewer-lab/ct-stack 200 in 69ms
+ ✓ Compiled in 532ms (2483 modules)
+ GET /viewer-lab/ct-stack 200 in 92ms
+ ✓ Compiled /viewer-lab in 354ms (2495 modules)
+ GET /viewer-lab 307 in 494ms
+ GET /viewer-lab/ct-stack 200 in 81ms
+ ✓ Compiled /workstation/[studyId] in 308ms (1384 modules)
+ GET /workstation/study-lidc-002 200 in 470ms
+ ✓ Compiled /api/dicom/local/[caseId]/[stackIndex] in 333ms (1371 modules)
+ GET /api/dicom/local/lidc_case_002/131 200 in 423ms
+ GET /api/dicom/local/lidc_case_002/133 200 in 300ms
+ GET /api/dicom/local/lidc_case_002/132 200 in 369ms
+ GET /api/dicom/local/lidc_case_002/134 200 in 25ms
+ GET /api/dicom/local/lidc_case_002/129 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/135 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/136 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/128 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/127 200 in 15ms
+ GET /api/dicom/local/lidc_case_002/126 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/125 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/124 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/123 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/122 200 in 16ms
+ GET /api/dicom/local/lidc_case_002/121 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/120 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/119 200 in 12ms
+ GET /api/dicom/local/lidc_case_002/118 200 in 16ms
+ ✓ Compiled /workstation/[studyId] in 183ms (1387 modules)
+ GET /workstation/study-ct-001 200 in 312ms
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 297ms (1389 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 395ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 395ms
+ GET /api/dicom/local/lidc_case_002/58 200 in 36ms
+ ✓ Compiled /worklist in 368ms (1394 modules)
+ GET /worklist 200 in 545ms
+ GET /worklist 200 in 35ms
+ GET /workstation/study-lidc-002 200 in 43ms
+ ○ Compiling /api/images/[imageId] ...
+ ✓ Compiled /api/images/[imageId] in 1481ms (2528 modules)
+ GET /api/images/lidc_case_002_middle_lung 200 in 2141ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 48ms
+ GET /api/images/lidc_case_002_lower_lung 200 in 29ms
+ GET /api/images/lidc_case_002_upper_lung 200 in 39ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 45ms
+ GET /api/dicom/local/lidc_case_002/138 200 in 32ms
+ GET /api/dicom/local/lidc_case_002/140 200 in 21ms
+ GET /api/dicom/local/lidc_case_002/141 200 in 25ms
+ GET /api/dicom/local/lidc_case_002/142 200 in 21ms
+ GET /api/dicom/local/lidc_case_002/143 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/144 200 in 24ms
+ GET /api/dicom/local/lidc_case_002/146 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/147 200 in 29ms
+ GET /api/dicom/local/lidc_case_002/149 200 in 35ms
+ GET /api/dicom/local/lidc_case_002/151 200 in 37ms
+ GET /api/dicom/local/lidc_case_002/153 200 in 33ms
+ GET /api/dicom/local/lidc_case_002/154 200 in 35ms
+ GET /api/dicom/local/lidc_case_002/156 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/159 200 in 37ms
+ GET /api/dicom/local/lidc_case_002/161 200 in 33ms
+ GET /api/dicom/local/lidc_case_002/163 200 in 34ms
+ GET /api/dicom/local/lidc_case_002/164 200 in 25ms
+ GET /api/dicom/local/lidc_case_002/162 200 in 41ms
+ GET /api/dicom/local/lidc_case_002/160 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/158 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/155 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/152 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/150 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/145 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/139 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/137 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/157 200 in 32ms
+ GET /api/dicom/local/lidc_case_002/102 200 in 29ms
+ GET /api/dicom/local/lidc_case_002/100 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/116 200 in 37ms
+ GET /api/dicom/local/lidc_case_002/114 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/112 200 in 46ms
+ GET /api/dicom/local/lidc_case_002/110 200 in 45ms
+ GET /api/dicom/local/lidc_case_002/107 200 in 53ms
+ GET /api/dicom/local/lidc_case_002/106 200 in 50ms
+ GET /api/dicom/local/lidc_case_002/105 200 in 43ms
+ GET /api/dicom/local/lidc_case_002/104 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/101 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/99 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/98 200 in 30ms
+ GET /api/dicom/local/lidc_case_002/51 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/53 200 in 30ms
+ GET /api/dicom/local/lidc_case_002/54 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/56 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/61 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/64 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/67 200 in 30ms
+ GET /api/dicom/local/lidc_case_002/70 200 in 33ms
+ GET /api/dicom/local/lidc_case_002/73 200 in 35ms
+ GET /api/dicom/local/lidc_case_002/78 200 in 33ms
+ GET /api/dicom/local/lidc_case_002/81 200 in 39ms
+ GET /api/dicom/local/lidc_case_002/84 200 in 36ms
+ GET /api/dicom/local/lidc_case_002/87 200 in 38ms
+ GET /api/dicom/local/lidc_case_002/89 200 in 39ms
+ GET /api/dicom/local/lidc_case_002/91 200 in 45ms
+ GET /api/dicom/local/lidc_case_002/93 200 in 43ms
+ GET /api/dicom/local/lidc_case_002/94 200 in 41ms
+ GET /api/dicom/local/lidc_case_002/96 200 in 33ms
+ GET /api/dicom/local/lidc_case_002/113 200 in 29ms
+ GET /api/dicom/local/lidc_case_002/115 200 in 36ms
+ GET /api/dicom/local/lidc_case_002/111 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/65 200 in 37ms
+ GET /api/dicom/local/lidc_case_002/195 200 in 30ms
+ GET /api/images/lidc_case_002_lower_lung 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 41ms
+ GET /api/dicom/local/lidc_case_002/233 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 39ms
+ ○ Compiling /reports/[studyId] ...
+ ✓ Compiled /reports/[studyId] in 1573ms (2504 modules)
+ GET /reports/study-lidc-002 200 in 2243ms
+ GET /reports/study-lidc-002 200 in 40ms
+ GET /workstation/study-ct-001 200 in 44ms
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 202ms (1391 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 331ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 334ms
+ ✓ Compiled /worklist in 225ms (1396 modules)
+ GET /worklist 200 in 401ms
+ GET /workstation/study-lidc-002 200 in 47ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 49ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 44ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 35ms
+ ✓ Compiled /api/dicom/local/[caseId]/[stackIndex] in 224ms (1398 modules)
+ GET /api/dicom/local/lidc_case_002/108 200 in 235ms
+ GET /api/dicom/local/lidc_case_002/117 200 in 310ms
+ GET /api/dicom/local/lidc_case_002/103 200 in 93ms
+ GET /viewer-lab/ct-stack 200 in 66ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 50ms
+ GET /api/dicom/local/lidc_case_002/109 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/97 200 in 31ms
+ GET /api/dicom/local/lidc_case_002/95 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/92 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/90 200 in 21ms
+ GET /api/dicom/local/lidc_case_002/88 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/86 200 in 14ms
+ GET /api/dicom/local/lidc_case_002/85 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/83 200 in 21ms
+ GET /api/dicom/local/lidc_case_002/82 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/80 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/79 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/77 200 in 24ms
+ GET /api/dicom/local/lidc_case_002/76 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/75 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/74 200 in 24ms
+ GET /api/dicom/local/lidc_case_002/72 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/71 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/69 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/68 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/66 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/63 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/62 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/60 200 in 13ms
+ GET /api/dicom/local/lidc_case_002/59 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/57 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/55 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/52 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/50 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/49 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/48 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/47 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/46 200 in 12ms
+ GET /api/dicom/local/lidc_case_002/45 200 in 14ms
+ GET /api/dicom/local/lidc_case_002/44 200 in 18ms
+ GET /workstation/study-ct-001 200 in 52ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 36ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 46ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 36ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 35ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 43ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 30ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 39ms
+ ○ Compiling /research ...
+ ✓ Compiled /research in 758ms (2522 modules)
+ GET /research 200 in 844ms
+ ○ Compiling /api/images/[imageId] ...
+ ✓ Compiled /api/images/[imageId] in 1100ms (1415 modules)
+ GET /api/images/img-cxr-001 200 in 1255ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 32ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 49ms
+ GET /worklist 200 in 96ms
+ GET /workstation/study-lidc-002 200 in 50ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 34ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 41ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 34ms
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 706ms (2508 modules)
+ ✓ Compiled (2515 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 419ms
+ ✓ Compiled in 419ms (2515 modules)
+ ✓ Compiled in 619ms (2522 modules)
+ GET /workstation/study-lidc-002 200 in 110ms
+ GET /viewer-lab/ct-stack 200 in 111ms
+ GET /workstation/study-lidc-002 200 in 180ms
+ ✓ Compiled /api/dicom/local/[caseId]/[stackIndex] in 415ms (1393 modules)
+ GET /api/dicom/local/lidc_case_002/176 200 in 346ms
+ GET /api/dicom/local/lidc_case_002/168 200 in 512ms
+ GET /api/dicom/local/lidc_case_002/179 200 in 344ms
+ GET /api/dicom/local/lidc_case_002/167 200 in 518ms
+ GET /api/dicom/local/lidc_case_002/172 200 in 495ms
+ GET /api/dicom/local/lidc_case_002/183 200 in 353ms
+ GET /api/dicom/local/lidc_case_002/185 200 in 24ms
+ GET /api/dicom/local/lidc_case_002/190 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/198 200 in 42ms
+ GET /api/dicom/local/lidc_case_002/193 200 in 45ms
+ GET /api/dicom/local/lidc_case_002/188 200 in 50ms
+ GET /api/dicom/local/lidc_case_002/201 200 in 51ms
+ GET /api/dicom/local/lidc_case_002/203 200 in 56ms
+ GET /api/dicom/local/lidc_case_002/205 200 in 40ms
+ GET /api/dicom/local/lidc_case_002/208 200 in 51ms
+ GET /api/dicom/local/lidc_case_002/209 200 in 49ms
+ GET /api/dicom/local/lidc_case_002/207 200 in 58ms
+ GET /api/dicom/local/lidc_case_002/211 200 in 55ms
+ GET /api/dicom/local/lidc_case_002/212 200 in 54ms
+ GET /api/dicom/local/lidc_case_002/213 200 in 44ms
+ GET /api/dicom/local/lidc_case_002/216 200 in 46ms
+ GET /api/dicom/local/lidc_case_002/220 200 in 47ms
+ GET /api/dicom/local/lidc_case_002/219 200 in 51ms
+ GET /api/dicom/local/lidc_case_002/222 200 in 52ms
+ GET /api/dicom/local/lidc_case_002/221 200 in 55ms
+ GET /api/dicom/local/lidc_case_002/218 200 in 51ms
+ GET /api/dicom/local/lidc_case_002/200 200 in 49ms
+ GET /api/dicom/local/lidc_case_002/215 200 in 51ms
+ GET /api/dicom/local/lidc_case_002/196 200 in 44ms
+ GET /api/dicom/local/lidc_case_002/192 200 in 46ms
+ GET /api/dicom/local/lidc_case_002/184 200 in 54ms
+ GET /api/dicom/local/lidc_case_002/178 200 in 50ms
+ GET /api/dicom/local/lidc_case_002/180 200 in 53ms
+ GET /api/dicom/local/lidc_case_002/174 200 in 59ms
+ GET /api/dicom/local/lidc_case_002/171 200 in 53ms
+ GET /api/dicom/local/lidc_case_002/170 200 in 48ms
+ GET /api/dicom/local/lidc_case_002/166 200 in 27ms
+ GET /api/dicom/local/lidc_case_002/165 200 in 26ms
+ GET /api/dicom/local/lidc_case_002/169 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/173 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/177 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/214 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/224 200 in 14ms
+ GET /api/dicom/local/lidc_case_002/227 200 in 17ms
+ GET /api/dicom/local/lidc_case_002/229 200 in 21ms
+ GET /api/dicom/local/lidc_case_002/230 200 in 19ms
+ GET /api/dicom/local/lidc_case_002/231 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/232 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/242 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/251 200 in 22ms
+ GET /api/dicom/local/lidc_case_002/260 200 in 23ms
+ GET /api/dicom/local/lidc_case_002/256 200 in 20ms
+ GET /api/dicom/local/lidc_case_002/246 200 in 16ms
+ GET /api/dicom/local/lidc_case_002/241 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/236 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/217 200 in 18ms
+ GET /api/dicom/local/lidc_case_002/189 200 in 28ms
+ GET /api/dicom/local/lidc_case_002/187 200 in 19ms
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 299ms (1395 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 347ms
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 352ms

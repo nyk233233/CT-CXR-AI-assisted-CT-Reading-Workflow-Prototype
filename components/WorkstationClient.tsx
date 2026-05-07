@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { CTStackViewer } from "@/components/ct/CTStackViewer";
 import type {
   ActionLogEntry,
   ImageRef,
@@ -115,6 +116,7 @@ export function WorkstationClient({
   const [modelDraftMeta, setModelDraftMeta] = useState<ReportDraftResponse | null>(null);
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [showFullTrace, setShowFullTrace] = useState(false);
+  const [viewerMode, setViewerMode] = useState<"key-images" | "full-stack">("key-images");
   const centerWorkspaceRef = useRef<HTMLElement | null>(null);
   const [topWorkspaceHeight, setTopWorkspaceHeight] = useState<number | undefined>();
 
@@ -177,6 +179,7 @@ export function WorkstationClient({
 
   useEffect(() => {
     if (!hasRealCtKeyImages) return;
+    if (viewerMode !== "key-images") return;
 
     const linkedImage = selectedFinding
       ? realKeyImages.find((item) => item.sliceIndex === selectedFinding.linkedSliceIndex)
@@ -186,7 +189,7 @@ export function WorkstationClient({
     if (nextImage) {
       setSelectedImageId(nextImage.imageId);
     }
-  }, [hasRealCtKeyImages, realKeyImages, selectedFinding]);
+  }, [hasRealCtKeyImages, realKeyImages, selectedFinding, viewerMode]);
 
   useEffect(() => {
     const centerElement = centerWorkspaceRef.current;
@@ -207,7 +210,7 @@ export function WorkstationClient({
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateTopWorkspaceHeight);
     };
-  }, [selectedImageId, selectedFindingId, modelDraftMeta, aiInputPreview, bundle.report.findings.text]);
+  }, [selectedImageId, selectedFindingId, modelDraftMeta, aiInputPreview, bundle.report.findings.text, viewerMode]);
 
   async function refreshBundlePreservingReport() {
     const res = await fetch(`/api/studies/${bundle.study.studyId}`);
@@ -475,18 +478,50 @@ export function WorkstationClient({
               <div>
                 <h3 className="section-title" style={{ color: "#f8fafc" }}>Viewer Workspace</h3>
                 <p className="section-note" style={{ color: "rgba(248,250,252,0.78)" }}>
-                  {hasRealCtKeyImages
-                    ? "Real LIDC CT lung-window key images from DICOM preprocessing."
-                    : "Mock CT viewport. It can later be replaced by a viewer adapter."}
+                  {viewerMode === "full-stack"
+                    ? "Full CT stack preview using local DICOM image API. Key image workflow remains the default for report drafting."
+                    : hasRealCtKeyImages
+                      ? "Real LIDC CT lung-window key images from DICOM preprocessing."
+                      : "Mock CT viewport. It can later be replaced by a viewer adapter."}
                 </p>
               </div>
               <div className="badge-row">
                 <span className="badge">Series: {currentSeriesId}</span>
-                <span className="badge accent">Slice: {selectedImage?.sliceIndex ?? selectedFinding?.linkedSliceIndex ?? "-"}</span>
+                <span className="badge accent">
+                  {viewerMode === "full-stack" ? "Full Stack beta" : `Slice: ${selectedImage?.sliceIndex ?? selectedFinding?.linkedSliceIndex ?? "-"}`}
+                </span>
               </div>
             </div>
 
-            {hasRealCtKeyImages && selectedImage ? (
+            <div className="viewer-mode-toggle">
+              <button
+                className={`button ${viewerMode === "key-images" ? "primary" : "ghost"}`}
+                onClick={() => setViewerMode("key-images")}
+              >
+                Key Images
+              </button>
+              <button
+                className={`button ${viewerMode === "full-stack" ? "primary" : "ghost"}`}
+                onClick={() => setViewerMode("full-stack")}
+              >
+                Full Stack beta
+              </button>
+            </div>
+
+            {viewerMode === "full-stack" ? (
+              <div className="stack" style={{ marginTop: 14 }}>
+                <CTStackViewer
+                  caseId="lidc_case_002"
+                  compact
+                  height="420px"
+                  initialStackIndex={130}
+                  showMetadata={false}
+                  targetSliceIndex={selectedFinding?.linkedSliceIndex}
+                  targetSliceKey={selectedFindingId}
+                  targetSliceMode="instanceNumber"
+                />
+              </div>
+            ) : hasRealCtKeyImages && selectedImage ? (
               <div className="stack" style={{ marginTop: 16 }}>
                 <div className="split-row">
                   <div>

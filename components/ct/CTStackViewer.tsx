@@ -1,0 +1,360 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { WheelEvent } from "react";
+
+const DEFAULT_INITIAL_STACK_INDEX = 130;
+let renderingEngineCounter = 0;
+
+export type CtStackSlice = {
+  sopInstanceUid?: string;
+  stackIndex: number;
+  sliceIndex?: number;
+  instanceNumber?: number;
+  zPosition?: number;
+};
+
+export type CtStackManifest = {
+  caseId: string;
+  studyId?: string;
+  seriesId: string;
+  numSlices: number;
+  rows: number;
+  columns: number;
+  pixelSpacing?: [number, number] | null;
+  sliceThickness?: number;
+  rescaleSlope?: number;
+  rescaleIntercept?: number;
+  slices: CtStackSlice[];
+};
+
+export type CtStackViewerState = {
+  currentIndex: number;
+  currentSlice: CtStackSlice | null;
+  manifest: CtStackManifest | null;
+  status: ViewerStatus;
+  errorMessage: string | null;
+};
+
+type ViewerStatus = "idle" | "loading-manifest" | "initializing-viewer" | "ready" | "error";
+
+type CTStackViewerProps = {
+  caseId: string;
+  compact?: boolean;
+  height?: string;
+  initialStackIndex?: number;
+  onStateChange?: (state: CtStackViewerState) => void;
+  selectedSliceIndex?: number;
+  selectedSliceMode?: "instanceNumber" | "stackIndex";
+  showDeveloperPreview?: boolean;
+  showMetadata?: boolean;
+  targetSliceIndex?: number;
+  targetSliceKey?: string;
+  targetSliceMode?: "instanceNumber" | "stackIndex";
+};
+
+function clampIndex(index: number, maxIndex: number): number {
+  return Math.max(0, Math.min(index, maxIndex));
+}
+
+function formatNumber(value: number | undefined): string {
+  return typeof value === "number" ? String(value) : "-";
+}
+
+function resolveStackIndex(
+  manifest: CtStackManifest,
+  target: number | undefined,
+  mode: "instanceNumber" | "stackIndex",
+): number | undefined {
+  if (typeof target !== "number") return undefined;
+
+  if (mode === "instanceNumber") {
+    const exactInstance = manifest.slices.find((slice) => slice.instanceNumber === target);
+    if (exactInstance) return exactInstance.stackIndex;
+  }
+
+  const exactStack = manifest.slices.find((slice) => slice.stackIndex === target);
+  if (exactStack) return exactStack.stackIndex;
+
+  const nearest = manifest.slices.reduce<CtStackSlice | null>((best, slice) => {
+    if (!best) return slice;
+
+    const sliceValue = mode === "instanceNumber" ? slice.instanceNumber ?? slice.stackIndex : slice.stackIndex;
+    const bestValue = mode === "instanceNumber" ? best.instanceNumber ?? best.stackIndex : best.stackIndex;
+
+    return Math.abs(sliceValue - target) < Math.abs(bestValue - target) ? slice : best;
+  }, null);
+
+  return nearest?.stackIndex;
+}
+
+export function CTStackViewer({
+  caseId,
+  compact = false,
+  height,
+  initialStackIndex = DEFAULT_INITIAL_STACK_INDEX,
+  onStateChange,
+  selectedSliceIndex,
+  selectedSliceMode = "instanceNumber",
+  showDeveloperPreview = false,
+  showMetadata = true,
+  targetSliceIndex,
+  targetSliceKey,
+  targetSliceMode,
+}: CTStackViewerProps) {
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<any>(null);
+  const renderingEngineRef = useRef<any>(null);
+  const imageIdsRef = useRef<string[]>([]);
+  const lastJumpTargetRef = useRef<string | null>(null);
+  const engineIdsRef = useRef({
+    renderingEngineId: `ct-stack-rendering-engine-${++renderingEngineCounter}`,
+    viewportId: `ct-stack-viewport-${renderingEngineCounter}`,
+  });
+  const [manifest, setManifest] = useState<CtStackManifest | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(initialStackIndex);
+  const [status, setStatus] = useState<ViewerStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const effectiveTargetSliceIndex = targetSliceIndex ?? selectedSliceIndex;
+  const effectiveTargetSliceMode = targetSliceMode ?? selectedSliceMode;
+
+  const currentSlice = useMemo(
+    () => manifest?.slices.find((slice) => slice.stackIndex === currentIndex) ?? null,
+    [currentIndex, manifest],
+  );
+
+  const maxIndex = manifest ? Math.max(0, manifest.numSlices - 1) : 0;
+
+  const setViewportIndex = useCallback(
+    async (nextIndex: number) => {
+      if (!manifest || !viewportRef.current) return;
+
+      const clampedIndex = clampIndex(nextIndex, maxIndex);
+      await viewportRef.current.setImageIdIndex(clampedIndex);
+      viewportRef.current.render();
+      setCurrentIndex(clampedIndex);
+    },
+    [manifest, maxIndex],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initializeViewer() {
+      try {
+        setStatus("loading-manifest");
+        setErrorMessage(null);
+
+        const manifestResponse = await fetch(`/api/dicom/local/${caseId}/manifest`, {
+          cache: "no-store",
+        });
+
+        if (!manifestResponse.ok) {
+          throw new Error(`Manifest request failed: ${manifestResponse.status} ${manifestResponse.statusText}`);
+        }
+
+        const loadedManifest = (await manifestResponse.json()) as CtStackManifest;
+        if (cancelled) return;
+
+        const sortedSlices = [...loadedManifest.slices].sort((a, b) => a.stackIndex - b.stackIndex);
+        const normalizedManifest = { ...loadedManifest, slices: sortedSlices };
+        const origin = window.location.origin;
+        const imageIds = sortedSlices.map(
+          (slice) => `wadouri:${origin}/api/dicom/local/${caseId}/${slice.stackIndex}`,
+        );
+        const initialIndex = clampIndex(
+          resolveStackIndex(normalizedManifest, effectiveTargetSliceIndex, effectiveTargetSliceMode) ?? initialStackIndex,
+          Math.max(0, normalizedManifest.numSlices - 1),
+        );
+
+        imageIdsRef.current = imageIds;
+        setManifest(normalizedManifest);
+        setCurrentIndex(initialIndex);
+        setStatus("initializing-viewer");
+
+        const cornerstoneCore = await import("@cornerstonejs/core");
+        const dicomImageLoader = await import("@cornerstonejs/dicom-image-loader");
+
+        cornerstoneCore.init();
+
+        try {
+          dicomImageLoader.default?.init?.({ maxWebWorkers: 1 });
+        } catch {
+          dicomImageLoader.default?.init?.();
+        }
+
+        if (!elementRef.current || cancelled) return;
+
+        const renderingEngine = new cornerstoneCore.RenderingEngine(engineIdsRef.current.renderingEngineId);
+        renderingEngineRef.current = renderingEngine;
+        renderingEngine.enableElement({
+          viewportId: engineIdsRef.current.viewportId,
+          type: cornerstoneCore.Enums.ViewportType.STACK,
+          element: elementRef.current,
+        });
+
+        const viewport = renderingEngine.getViewport(engineIdsRef.current.viewportId) as any;
+        viewportRef.current = viewport;
+
+        await viewport.setStack(imageIds, initialIndex);
+        viewport.setProperties?.({
+          voiRange: {
+            lower: -1350,
+            upper: 150,
+          },
+        });
+        viewport.render();
+
+        if (!cancelled) {
+          setStatus("ready");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatus("error");
+          setErrorMessage(error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
+
+    void initializeViewer();
+
+    return () => {
+      cancelled = true;
+      viewportRef.current = null;
+      try {
+        renderingEngineRef.current?.destroy?.();
+      } catch {
+        // Hot reload can destroy the underlying engine first; ignore cleanup races.
+      }
+      renderingEngineRef.current = null;
+    };
+  }, [caseId, initialStackIndex]);
+
+  useEffect(() => {
+    if (!manifest || status !== "ready") return;
+    if (typeof effectiveTargetSliceIndex !== "number") return;
+
+    const jumpTargetKey = `${targetSliceKey ?? "slice"}:${effectiveTargetSliceMode}:${effectiveTargetSliceIndex}`;
+    if (lastJumpTargetRef.current === jumpTargetKey) return;
+
+    const resolvedStackIndex = resolveStackIndex(manifest, effectiveTargetSliceIndex, effectiveTargetSliceMode);
+    if (typeof resolvedStackIndex === "number" && resolvedStackIndex !== currentIndex) {
+      void setViewportIndex(resolvedStackIndex);
+    }
+    lastJumpTargetRef.current = jumpTargetKey;
+  }, [currentIndex, effectiveTargetSliceIndex, effectiveTargetSliceMode, manifest, setViewportIndex, status, targetSliceKey]);
+
+  useEffect(() => {
+    onStateChange?.({
+      currentIndex,
+      currentSlice,
+      manifest,
+      status,
+      errorMessage,
+    });
+  }, [currentIndex, currentSlice, errorMessage, manifest, onStateChange, status]);
+
+  const handleWheel = useCallback(
+    (event: WheelEvent<HTMLDivElement>) => {
+      if (status !== "ready") return;
+      event.preventDefault();
+
+      const delta = event.deltaY > 0 ? 1 : -1;
+      void setViewportIndex(currentIndex + delta);
+    },
+    [currentIndex, setViewportIndex, status],
+  );
+
+  const imageIdPreview = imageIdsRef.current.slice(Math.max(0, currentIndex - 2), currentIndex + 3);
+
+  return (
+    <div className={`ct-stack-viewer ${compact ? "compact" : ""}`}>
+      <div
+        className="cornerstone-viewport-frame"
+        onWheel={handleWheel}
+        style={height ? { height } : undefined}
+      >
+        <div ref={elementRef} className="cornerstone-viewport" />
+        {status !== "ready" ? (
+          <div className="cornerstone-viewport-overlay">
+            <strong>{status === "error" ? "Viewer initialization failed" : "Loading CT stack..."}</strong>
+            <span>{errorMessage ?? "Preparing Cornerstone3D rendering engine."}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="ct-stack-controls panel-soft">
+        <div className="split-row">
+          <div className="badge-row">
+            <span className="badge accent">stackIndex {currentIndex}</span>
+            <span className="badge">instance {formatNumber(currentSlice?.instanceNumber)}</span>
+            <span className="badge">z {formatNumber(currentSlice?.zPosition)}</span>
+          </div>
+          <span className={`badge ${status === "ready" ? "accent" : status === "error" ? "danger" : "warn"}`}>
+            {status}
+          </span>
+        </div>
+
+        <div className="toolbar" style={{ marginTop: 10 }}>
+          <button className="button ghost" disabled={status !== "ready" || currentIndex <= 0} onClick={() => void setViewportIndex(currentIndex - 1)}>
+            Prev
+          </button>
+          <button className="button primary" disabled={status !== "ready"} onClick={() => void setViewportIndex(initialStackIndex)}>
+            Middle
+          </button>
+          <button className="button ghost" disabled={status !== "ready" || currentIndex >= maxIndex} onClick={() => void setViewportIndex(currentIndex + 1)}>
+            Next
+          </button>
+        </div>
+
+        <input
+          aria-label="CT stack index"
+          className="viewer-lab-slider"
+          disabled={status !== "ready"}
+          max={maxIndex}
+          min={0}
+          type="range"
+          value={currentIndex}
+          onChange={(event) => void setViewportIndex(Number(event.target.value))}
+        />
+      </div>
+
+      {showMetadata ? (
+        <div className={`ct-stack-metadata-grid ${compact ? "compact" : ""}`}>
+          <section className="panel-soft stack" style={{ padding: 12 }}>
+            <h3 className="section-title">Stack Metadata</h3>
+            <div className="viewer-lab-metadata">
+              <span>caseId</span><strong>{manifest?.caseId ?? "-"}</strong>
+              <span>seriesId</span><strong>{manifest?.seriesId ?? "-"}</strong>
+              <span>numSlices</span><strong>{manifest?.numSlices ?? "-"}</strong>
+              <span>matrix</span><strong>{manifest ? `${manifest.rows} x ${manifest.columns}` : "-"}</strong>
+              <span>pixelSpacing</span><strong>{manifest?.pixelSpacing?.join(" x ") ?? "-"}</strong>
+              <span>sliceThickness</span><strong>{formatNumber(manifest?.sliceThickness)}</strong>
+              <span>rescaleSlope</span><strong>{formatNumber(manifest?.rescaleSlope)}</strong>
+              <span>rescaleIntercept</span><strong>{formatNumber(manifest?.rescaleIntercept)}</strong>
+            </div>
+          </section>
+
+          <section className="panel-soft stack" style={{ padding: 12 }}>
+            <h3 className="section-title">Current Slice</h3>
+            <div className="viewer-lab-metadata">
+              <span>stackIndex</span><strong>{currentSlice?.stackIndex ?? currentIndex}</strong>
+              <span>instanceNumber</span><strong>{formatNumber(currentSlice?.instanceNumber)}</strong>
+              <span>zPosition</span><strong>{formatNumber(currentSlice?.zPosition)}</strong>
+              <span>SOPInstanceUID</span><strong className="mono-wrap">{currentSlice?.sopInstanceUid ?? "-"}</strong>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showDeveloperPreview ? (
+        <details className="panel-soft" style={{ padding: 12 }}>
+          <summary style={{ cursor: "pointer", fontWeight: 700 }}>Developer Notes / imageIds preview</summary>
+          <pre style={{ margin: "12px 0 0", whiteSpace: "pre-wrap", fontSize: 12 }}>
+            {imageIdPreview.length > 0 ? imageIdPreview.join("\n") : "imageIds will appear after manifest loading."}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
