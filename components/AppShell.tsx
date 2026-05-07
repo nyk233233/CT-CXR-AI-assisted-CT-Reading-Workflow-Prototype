@@ -12,6 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/reports/study-ct-001", label: "Reports" },
     { href: "/research", label: "Research" },
     { href: "/ct-sandbox", label: "CT Sandbox" },
+    { href: "/viewer-lab/ct-stack", label: "Viewer Lab" },
   ];
 
   return (
