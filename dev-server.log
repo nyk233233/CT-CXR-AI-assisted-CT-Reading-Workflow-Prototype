@@ -806,3 +806,10 @@
  ✓ Compiled /api/dicom/local/[caseId]/manifest in 299ms (1395 modules)
  GET /api/dicom/local/lidc_case_002/manifest 200 in 347ms
  GET /api/dicom/local/lidc_case_002/manifest 200 in 352ms
+ ✓ Compiled in 946ms (2508 modules)
+ ✓ Compiled /api/dicom/local/[caseId]/manifest in 259ms (1393 modules)
+ GET /api/dicom/local/lidc_case_002/manifest 200 in 349ms
+ ✓ Compiled in 715ms (2522 modules)
+ GET /workstation/study-lidc-002 200 in 182ms
+ GET /viewer-lab/ct-stack 200 in 169ms
+ GET /workstation/study-lidc-002 200 in 251ms

@@ -514,6 +514,43 @@ select {
   accent-color: var(--accent);
 }
 
+.window-preset-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.window-preset-button {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.window-preset-button:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.window-preset-button.active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.window-preset-button:disabled {
+  border-color: #94a3b8;
+  background: #cbd5e1;
+  color: #475569;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .ct-stack-viewer {
   display: flex;
   flex-direction: column;
@@ -589,6 +626,33 @@ select {
   background: rgba(71, 85, 105, 0.72);
   color: #cbd5e1;
   opacity: 0.78;
+}
+
+.ct-stack-viewer.compact .window-preset-row .tiny {
+  color: #cbd5e1;
+}
+
+.ct-stack-viewer.compact .window-preset-button {
+  border-color: #94a3b8;
+  background: rgba(15, 23, 42, 0.76);
+  color: #f1f5f9;
+}
+
+.ct-stack-viewer.compact .window-preset-button:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.96);
+}
+
+.ct-stack-viewer.compact .window-preset-button.active {
+  border-color: #14b8a6;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.ct-stack-viewer.compact .window-preset-button:disabled {
+  border-color: rgba(71, 85, 105, 0.9);
+  background: rgba(51, 65, 85, 0.68);
+  color: #cbd5e1;
+  opacity: 0.74;
 }
 
 .ct-stack-metadata-grid {

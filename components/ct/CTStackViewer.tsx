@@ -6,6 +6,14 @@ import type { WheelEvent } from "react";
 const DEFAULT_INITIAL_STACK_INDEX = 130;
 let renderingEngineCounter = 0;
 
+type WindowPreset = "lung" | "mediastinum" | "bone";
+
+const WINDOW_PRESETS: Record<WindowPreset, { label: string; center: number; width: number }> = {
+  lung: { label: "Lung", center: -600, width: 1500 },
+  mediastinum: { label: "Mediastinum", center: 40, width: 400 },
+  bone: { label: "Bone", center: 300, width: 1500 },
+};
+
 export type CtStackSlice = {
   sopInstanceUid?: string;
   stackIndex: number;
@@ -59,6 +67,15 @@ function clampIndex(index: number, maxIndex: number): number {
 
 function formatNumber(value: number | undefined): string {
   return typeof value === "number" ? String(value) : "-";
+}
+
+function getVoiRange(preset: WindowPreset): { lower: number; upper: number } {
+  const { center, width } = WINDOW_PRESETS[preset];
+
+  return {
+    lower: center - width / 2,
+    upper: center + width / 2,
+  };
 }
 
 function resolveStackIndex(
@@ -115,8 +132,10 @@ export function CTStackViewer({
   const [currentIndex, setCurrentIndex] = useState(initialStackIndex);
   const [status, setStatus] = useState<ViewerStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [windowPreset, setWindowPreset] = useState<WindowPreset>("lung");
   const effectiveTargetSliceIndex = targetSliceIndex ?? selectedSliceIndex;
   const effectiveTargetSliceMode = targetSliceMode ?? selectedSliceMode;
+  const activeWindowPreset = WINDOW_PRESETS[windowPreset];
 
   const currentSlice = useMemo(
     () => manifest?.slices.find((slice) => slice.stackIndex === currentIndex) ?? null,
@@ -198,10 +217,7 @@ export function CTStackViewer({
 
         await viewport.setStack(imageIds, initialIndex);
         viewport.setProperties?.({
-          voiRange: {
-            lower: -1350,
-            upper: 150,
-          },
+          voiRange: getVoiRange(windowPreset),
         });
         viewport.render();
 
@@ -229,6 +245,15 @@ export function CTStackViewer({
       renderingEngineRef.current = null;
     };
   }, [caseId, initialStackIndex]);
+
+  useEffect(() => {
+    if (status !== "ready" || !viewportRef.current) return;
+
+    viewportRef.current.setProperties?.({
+      voiRange: getVoiRange(windowPreset),
+    });
+    viewportRef.current.render();
+  }, [status, windowPreset]);
 
   useEffect(() => {
     if (!manifest || status !== "ready") return;
@@ -289,6 +314,9 @@ export function CTStackViewer({
             <span className="badge accent">stackIndex {currentIndex}</span>
             <span className="badge">instance {formatNumber(currentSlice?.instanceNumber)}</span>
             <span className="badge">z {formatNumber(currentSlice?.zPosition)}</span>
+            <span className="badge">
+              {activeWindowPreset.label} · C {activeWindowPreset.center} / W {activeWindowPreset.width}
+            </span>
           </div>
           <span className={`badge ${status === "ready" ? "accent" : status === "error" ? "danger" : "warn"}`}>
             {status}
@@ -305,6 +333,24 @@ export function CTStackViewer({
           <button className="button ghost" disabled={status !== "ready" || currentIndex >= maxIndex} onClick={() => void setViewportIndex(currentIndex + 1)}>
             Next
           </button>
+        </div>
+
+        <div className="window-preset-row">
+          <span className="tiny">Window:</span>
+          {(Object.keys(WINDOW_PRESETS) as WindowPreset[]).map((presetKey) => {
+            const preset = WINDOW_PRESETS[presetKey];
+
+            return (
+              <button
+                key={presetKey}
+                className={`window-preset-button ${windowPreset === presetKey ? "active" : ""}`}
+                disabled={status !== "ready"}
+                onClick={() => setWindowPreset(presetKey)}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
         </div>
 
         <input
@@ -332,6 +378,8 @@ export function CTStackViewer({
               <span>sliceThickness</span><strong>{formatNumber(manifest?.sliceThickness)}</strong>
               <span>rescaleSlope</span><strong>{formatNumber(manifest?.rescaleSlope)}</strong>
               <span>rescaleIntercept</span><strong>{formatNumber(manifest?.rescaleIntercept)}</strong>
+              <span>window</span><strong>{activeWindowPreset.label}</strong>
+              <span>WC / WW</span><strong>{activeWindowPreset.center} / {activeWindowPreset.width}</strong>
             </div>
           </section>
 
