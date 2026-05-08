@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { CTMarkerOverlay } from "@/components/ct/CTMarkerOverlay";
 import type { CTMarkerOverlayMarker } from "@/components/ct/CTMarkerOverlay";
+import { CTMeasurementOverlay, getNormalizedImagePoint } from "@/components/ct/CTMeasurementOverlay";
+import type { CTMeasurementOverlayItem, MeasurementPoint } from "@/components/ct/CTMeasurementOverlay";
 import { CTStackViewer } from "@/components/ct/CTStackViewer";
+import type { CtStackViewerState, WindowPreset } from "@/components/ct/CTStackViewer";
 import type {
   ActionLogEntry,
   Finding,
@@ -25,6 +28,41 @@ type ReportDraftResponse = {
   requestDurationMs: number;
   timeoutMs: number;
   output: ReportAssistOutput;
+};
+
+const CT_IMAGE_SIZE = 512;
+const DEFAULT_LIDC_PIXEL_SPACING: [number, number] = [0.681641, 0.681641];
+
+type MeasurementToolMode = "idle" | "placing-first" | "placing-second" | "complete";
+
+type MeasurementSliceRef = {
+  sliceIndex: number;
+  stackIndex?: number;
+  instanceNumber?: number;
+  zPosition?: number;
+  windowPreset?: WindowPreset;
+  pixelSpacing: [number, number];
+};
+
+type DraftMeasurement = {
+  points: MeasurementPoint[];
+  slice: MeasurementSliceRef;
+  distanceMm?: number;
+};
+
+type ManualMeasurement = {
+  measurementId: string;
+  findingId?: string;
+  sliceIndex: number;
+  stackIndex?: number;
+  instanceNumber?: number;
+  zPosition?: number;
+  windowPreset?: WindowPreset;
+  points: [MeasurementPoint, MeasurementPoint];
+  distanceMm: number;
+  pixelSpacing: [number, number];
+  source: "manual";
+  createdAt: string;
 };
 
 function keyImageDisplayLabel(imageRef: ImageRef): string {
@@ -59,6 +97,66 @@ function estimateReportTextareaRows(text: string): number {
   const visualLineCount = text.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 92)), 0);
 
   return Math.max(12, visualLineCount + 2);
+}
+
+function calculateDistanceMm(
+  pointA: MeasurementPoint,
+  pointB: MeasurementPoint,
+  pixelSpacing: [number, number],
+): number {
+  const dxPx = (pointB.x - pointA.x) * CT_IMAGE_SIZE;
+  const dyPx = (pointB.y - pointA.y) * CT_IMAGE_SIZE;
+
+  return Math.sqrt(
+    Math.pow(dxPx * pixelSpacing[0], 2) +
+      Math.pow(dyPx * pixelSpacing[1], 2),
+  );
+}
+
+function sameSlice(
+  a?: Pick<MeasurementSliceRef, "sliceIndex" | "stackIndex" | "instanceNumber">,
+  b?: Pick<MeasurementSliceRef, "sliceIndex" | "stackIndex" | "instanceNumber">,
+): boolean {
+  if (!a || !b) return false;
+  if (typeof a.instanceNumber === "number" && typeof b.instanceNumber === "number") {
+    return a.instanceNumber === b.instanceNumber;
+  }
+  if (typeof a.sliceIndex === "number" && typeof b.sliceIndex === "number") {
+    return a.sliceIndex === b.sliceIndex;
+  }
+
+  return typeof a.stackIndex === "number" && typeof b.stackIndex === "number" && a.stackIndex === b.stackIndex;
+}
+
+function formatWindowPreset(preset?: WindowPreset): string {
+  if (preset === "mediastinum") return "Mediastinum";
+  if (preset === "bone") return "Bone";
+  return "Lung";
+}
+
+function formatManualMeasurement(measurement: ManualMeasurement): string {
+  return `${measurement.distanceMm.toFixed(1)} mm · slice ${measurement.sliceIndex} · ${formatWindowPreset(measurement.windowPreset)}`;
+}
+
+function formatMeasurementSummary(measurement: MeasurementSummary): string {
+  const shortAxisText = measurement.shortAxisMm > 0 ? ` x ${measurement.shortAxisMm}` : "";
+  const meanHuText = typeof measurement.meanHU === "number" ? `, mean HU ${measurement.meanHU}` : "";
+
+  return `${measurement.longAxisMm.toFixed(1).replace(".0", "")}${shortAxisText} mm${meanHuText}`;
+}
+
+function createManualMeasurementSummary(
+  measurementId: string,
+  findingId: string,
+  distanceMm: number,
+): MeasurementSummary {
+  return {
+    measurementId,
+    findingId,
+    longAxisMm: Number(distanceMm.toFixed(1)),
+    shortAxisMm: 0,
+    notes: "Manual two-point measurement on current CT slice.",
+  };
 }
 
 function buildMarkerFromFinding(finding?: Finding): CTMarkerOverlayMarker | null {
@@ -131,6 +229,14 @@ export function WorkstationClient({
   const [showFullTrace, setShowFullTrace] = useState(false);
   const [viewerMode, setViewerMode] = useState<"key-images" | "full-stack">("key-images");
   const [findingJumpNonce, setFindingJumpNonce] = useState(0);
+  const [stackViewerState, setStackViewerState] = useState<CtStackViewerState | null>(null);
+  const [measurementMode, setMeasurementMode] = useState<MeasurementToolMode>("idle");
+  const [draftMeasurement, setDraftMeasurement] = useState<DraftMeasurement | null>(null);
+  const [manualMeasurements, setManualMeasurements] = useState<ManualMeasurement[]>([]);
+  const [measurementMessage, setMeasurementMessage] = useState("Click Start Measurement to draw a two-point distance.");
+  const [deletedFindingsForWarning, setDeletedFindingsForWarning] = useState<
+    Array<Pick<Finding, "findingId" | "label" | "narrative">>
+  >([]);
   const centerWorkspaceRef = useRef<HTMLElement | null>(null);
   const [topWorkspaceHeight, setTopWorkspaceHeight] = useState<number | undefined>();
 
@@ -183,6 +289,62 @@ export function WorkstationClient({
         : `Marker hidden: selected finding is linked to slice ${selectedFinding.linkedSliceIndex}.`
       : "No marker available for selected finding."
     : undefined;
+  const activeViewerSlice = useMemo<MeasurementSliceRef | undefined>(() => {
+    if (viewerMode === "full-stack") {
+      const currentSlice = stackViewerState?.currentSlice;
+      if (!currentSlice) return undefined;
+
+      return {
+        sliceIndex: currentSlice.instanceNumber ?? currentSlice.sliceIndex ?? stackViewerState?.currentIndex ?? 0,
+        stackIndex: stackViewerState?.currentIndex,
+        instanceNumber: currentSlice.instanceNumber,
+        zPosition: currentSlice.zPosition,
+        windowPreset: stackViewerState?.windowPreset ?? "lung",
+        pixelSpacing: stackViewerState?.manifest?.pixelSpacing ?? DEFAULT_LIDC_PIXEL_SPACING,
+      };
+    }
+
+    if (selectedImage) {
+      return {
+        sliceIndex: selectedImage.sliceIndex ?? 0,
+        instanceNumber: selectedImage.sliceIndex,
+        windowPreset: "lung",
+        pixelSpacing: DEFAULT_LIDC_PIXEL_SPACING,
+      };
+    }
+
+    return undefined;
+  }, [selectedImage, stackViewerState, viewerMode]);
+  const selectedManualMeasurements = useMemo(
+    () => manualMeasurements.filter((measurement) => measurement.findingId === selectedFindingId),
+    [manualMeasurements, selectedFindingId],
+  );
+  const visibleMeasurementOverlays = useMemo<CTMeasurementOverlayItem[]>(() => {
+    const overlays = manualMeasurements
+      .filter((measurement) => sameSlice(measurement, activeViewerSlice))
+      .map<CTMeasurementOverlayItem>((measurement) => ({
+        points: measurement.points,
+        label: `${measurement.distanceMm.toFixed(1)} mm`,
+      }));
+
+    if (draftMeasurement && sameSlice(draftMeasurement.slice, activeViewerSlice)) {
+      overlays.push({
+        points: draftMeasurement.points,
+        label: draftMeasurement.distanceMm ? `${draftMeasurement.distanceMm.toFixed(1)} mm` : undefined,
+      });
+    }
+
+    return overlays;
+  }, [activeViewerSlice, draftMeasurement, manualMeasurements]);
+  const measurementComplete = Boolean(draftMeasurement?.distanceMm && draftMeasurement.points.length === 2);
+  const canAttachMeasurement = measurementComplete && Boolean(selectedFinding) && selectedFinding?.status !== "dismissed";
+  const attachMeasurementHelper = !measurementComplete
+    ? "Draw a two-point measurement first."
+    : !selectedFinding
+      ? "Select a finding before attaching this measurement."
+      : selectedFinding.status === "dismissed"
+        ? "Cannot attach measurement to a dismissed finding. Create a manual finding instead."
+        : `Ready to attach to ${selectedFinding.label}.`;
 
   const draftReadinessMessage =
     confirmedFindings.length > 0
@@ -207,6 +369,14 @@ export function WorkstationClient({
       );
     });
   }, [bundle.findings, bundle.report.findings.text]);
+  const deletedFindingStillInFinalText = useMemo(() => {
+    const finalText = bundle.report.findings.text.toLowerCase();
+
+    return deletedFindingsForWarning.some((finding) => (
+      finalText.includes(finding.label.toLowerCase()) ||
+      finalText.includes(finding.narrative.toLowerCase())
+    ));
+  }, [bundle.report.findings.text, deletedFindingsForWarning]);
 
   useEffect(() => {
     if (!hasRealCtKeyImages) return;
@@ -274,6 +444,221 @@ export function WorkstationClient({
     }
   }
 
+  function beginMeasurement() {
+    if (!activeViewerSlice) {
+      setMeasurementMessage("No CT image is available for measurement.");
+      return;
+    }
+
+    setDraftMeasurement(null);
+    setMeasurementMode("placing-first");
+    setMeasurementMessage("Click the first point on the image.");
+  }
+
+  function cancelMeasurement() {
+    setDraftMeasurement(null);
+    setMeasurementMode("idle");
+    setMeasurementMessage("Click Start Measurement to draw a two-point distance.");
+  }
+
+  function clearMeasurement() {
+    setDraftMeasurement(null);
+    setMeasurementMode("idle");
+    setMeasurementMessage("Measurement cleared. Click Start Measurement to draw a new distance.");
+  }
+
+  function clearAllManualMeasurements() {
+    const manualMeasurementIds = new Set(manualMeasurements.map((measurement) => measurement.measurementId));
+
+    setManualMeasurements([]);
+    setDraftMeasurement(null);
+    setMeasurementMode("idle");
+    setMeasurementMessage("Cleared manual measurement overlays.");
+    setBundle((current) => ({
+      ...current,
+      measurements: current.measurements.filter((measurement) => !manualMeasurementIds.has(measurement.measurementId)),
+      actionLogs: [
+        createLocalActionLog(
+          current.study.studyId,
+          "user",
+          "clear_manual_measurements",
+          "Cleared manual measurement overlays.",
+        ),
+        ...current.actionLogs,
+      ],
+    }));
+  }
+
+  function recordMeasurementPoint(point: MeasurementPoint) {
+    if (measurementMode !== "placing-first" && measurementMode !== "placing-second") return;
+
+    if (!activeViewerSlice) {
+      setMeasurementMessage("No CT image is available for measurement.");
+      return;
+    }
+
+    if (measurementMode === "placing-first") {
+      setDraftMeasurement({
+        points: [point],
+        slice: activeViewerSlice,
+      });
+      setMeasurementMode("placing-second");
+      setMeasurementMessage("Click the second point on the image.");
+      return;
+    }
+
+    if (!draftMeasurement?.points[0]) return;
+
+    if (!sameSlice(draftMeasurement.slice, activeViewerSlice)) {
+      setMeasurementMessage("Return to the measurement slice before placing the second point.");
+      return;
+    }
+
+    const distanceMm = calculateDistanceMm(
+      draftMeasurement.points[0],
+      point,
+      draftMeasurement.slice.pixelSpacing,
+    );
+
+    setDraftMeasurement({
+      ...draftMeasurement,
+      points: [draftMeasurement.points[0], point],
+      distanceMm,
+    });
+    setMeasurementMode("complete");
+    setMeasurementMessage(`Distance: ${distanceMm.toFixed(1)} mm. Attach to a finding, create a manual finding, or clear.`);
+  }
+
+  function handleKeyImageMeasurementClick(event: MouseEvent<HTMLDivElement>) {
+    if (measurementMode !== "placing-first" && measurementMode !== "placing-second") return;
+
+    const point = getNormalizedImagePoint(event.currentTarget, event);
+    if (!point) {
+      setMeasurementMessage("Click inside the CT image area.");
+      return;
+    }
+
+    recordMeasurementPoint(point);
+  }
+
+  function attachMeasurementToSelectedFinding() {
+    if (!canAttachMeasurement || !selectedFinding || !draftMeasurement?.distanceMm || draftMeasurement.points.length !== 2) return;
+
+    const timestamp = Date.now();
+
+    const measurement: ManualMeasurement = {
+      measurementId: `manual-measurement-${timestamp}`,
+      findingId: selectedFinding.findingId,
+      sliceIndex: draftMeasurement.slice.sliceIndex,
+      stackIndex: draftMeasurement.slice.stackIndex,
+      instanceNumber: draftMeasurement.slice.instanceNumber,
+      zPosition: draftMeasurement.slice.zPosition,
+      windowPreset: draftMeasurement.slice.windowPreset,
+      points: [draftMeasurement.points[0], draftMeasurement.points[1]],
+      distanceMm: draftMeasurement.distanceMm,
+      pixelSpacing: draftMeasurement.slice.pixelSpacing,
+      source: "manual",
+      createdAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+    };
+    const measurementSummary = createManualMeasurementSummary(
+      measurement.measurementId,
+      selectedFinding.findingId,
+      draftMeasurement.distanceMm,
+    );
+
+    setManualMeasurements((current) => [measurement, ...current]);
+    setBundle((current) => ({
+      ...current,
+      measurements: [...current.measurements, measurementSummary],
+    }));
+    setDraftMeasurement(null);
+    setMeasurementMode("idle");
+    setMeasurementMessage(`Manual measurement attached to ${selectedFinding.label}.`);
+    appendLocalLog(
+      "user",
+      "attach_manual_measurement",
+      `Attached manual measurement ${measurement.distanceMm.toFixed(1)} mm to ${selectedFinding.label} on slice ${measurement.sliceIndex}.`,
+    );
+  }
+
+  function createManualFindingFromMeasurement() {
+    if (!draftMeasurement?.distanceMm || draftMeasurement.points.length !== 2 || !activeViewerSlice) return;
+
+    const timestamp = Date.now();
+    const findingId = `manual-finding-${timestamp}`;
+    const measurementId = `manual-measurement-${timestamp}`;
+    const distanceText = `${draftMeasurement.distanceMm.toFixed(1)} mm`;
+    const linkedSliceIndex = draftMeasurement.slice.sliceIndex;
+    const [pointA, pointB] = [draftMeasurement.points[0], draftMeasurement.points[1]];
+    const midpoint = {
+      x: (pointA.x + pointB.x) / 2,
+      y: (pointA.y + pointB.y) / 2,
+    };
+    const manualFinding: Finding = {
+      findingId,
+      studyId: bundle.study.studyId,
+      label: "Manual measured finding",
+      category: "Manual Measurement",
+      source: "manual",
+      status: "confirmed",
+      linkedSeriesId: currentSeriesId,
+      linkedSliceIndex,
+      sizeText: distanceText,
+      riskLevel: "low",
+      confidence: 1,
+      linkedReportSection: "findings",
+      narrative: `Manual two-point measurement of ${distanceText} on the selected CT slice.`,
+      features: ["manual measurement"],
+      marker: {
+        x: midpoint.x,
+        y: midpoint.y,
+        shape: "crosshair",
+        label: "Manual",
+      },
+    };
+    const manualMeasurement: ManualMeasurement = {
+      measurementId,
+      findingId,
+      sliceIndex: draftMeasurement.slice.sliceIndex,
+      stackIndex: draftMeasurement.slice.stackIndex,
+      instanceNumber: draftMeasurement.slice.instanceNumber,
+      zPosition: draftMeasurement.slice.zPosition,
+      windowPreset: draftMeasurement.slice.windowPreset,
+      points: [pointA, pointB],
+      distanceMm: draftMeasurement.distanceMm,
+      pixelSpacing: draftMeasurement.slice.pixelSpacing,
+      source: "manual",
+      createdAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+    };
+    const measurementSummary = createManualMeasurementSummary(measurementId, findingId, draftMeasurement.distanceMm);
+
+    setBundle((current) => ({
+      ...current,
+      study: {
+        ...current.study,
+        findingCount: current.findings.length + 1,
+      },
+      findings: [manualFinding, ...current.findings],
+      measurements: [...current.measurements, measurementSummary],
+      actionLogs: [
+        createLocalActionLog(
+          current.study.studyId,
+          "user",
+          "create_manual_finding",
+          `Created manual finding from measurement ${draftMeasurement.distanceMm?.toFixed(1)} mm on slice ${linkedSliceIndex}.`,
+        ),
+        ...current.actionLogs,
+      ],
+    }));
+    setManualMeasurements((current) => [manualMeasurement, ...current]);
+    setSelectedFindingId(findingId);
+    setCurrentSeriesId(currentSeriesId);
+    setFocusedSection("findings");
+    setDraftMeasurement(null);
+    setMeasurementMode("idle");
+    setMeasurementMessage(`Created manual finding from ${distanceText} measurement.`);
+  }
+
   async function loadAiInputPreview(section: "findings" | "impression") {
     setAiInputPreview(buildLocalReportAssistInput(bundle, imageRefs, section));
   }
@@ -310,6 +695,34 @@ export function WorkstationClient({
 
   async function updateFindingStatus(findingId: string, status: "confirmed" | "dismissed") {
     const finding = bundle.findings.find((item) => item.findingId === findingId);
+    if (finding?.source === "manual") {
+      setBundle((current) => ({
+        ...current,
+        findings: current.findings.map((item) =>
+          item.findingId === findingId ? { ...item, status } : item,
+        ),
+        actionLogs: [
+          createLocalActionLog(
+            current.study.studyId,
+            "user",
+            status === "confirmed" ? "confirm_finding" : "dismiss_finding",
+            status === "confirmed"
+              ? `Confirmed ${finding.label} for report drafting.`
+              : `Dismissed ${finding.label}; it will be excluded from report drafting.`,
+          ),
+          ...current.actionLogs,
+        ],
+      }));
+
+      if (status === "dismissed") {
+        setModelDraft(null);
+        setModelDraftMeta(null);
+      }
+
+      focusFinding(findingId);
+      return;
+    }
+
     const res = await fetch(
       `/api/studies/${bundle.study.studyId}/findings/${findingId}/${status === "confirmed" ? "confirm" : "dismiss"}`,
       { method: "POST" },
@@ -339,6 +752,70 @@ export function WorkstationClient({
     }
 
     focusFinding(findingId);
+  }
+
+  function deleteFinding(findingId: string) {
+    const finding = bundle.findings.find((item) => item.findingId === findingId);
+    if (!finding) return;
+
+    const confirmed = window.confirm(`Delete ${finding.label}? This removes it from the current workspace.`);
+    if (!confirmed) return;
+
+    // Dismiss keeps an audited candidate in the panel; delete removes it from this demo workspace.
+    const remainingFindings = bundle.findings.filter((item) => item.findingId !== findingId);
+    const nextSelectedFinding =
+      selectedFindingId === findingId
+        ? remainingFindings[0]
+        : remainingFindings.find((item) => item.findingId === selectedFindingId);
+
+    setDeletedFindingsForWarning((current) => [
+      { findingId: finding.findingId, label: finding.label, narrative: finding.narrative },
+      ...current.filter((item) => item.findingId !== finding.findingId),
+    ]);
+    setManualMeasurements((current) => current.filter((measurement) => measurement.findingId !== findingId));
+    setBundle((current) => {
+      const nextFindings = current.findings.filter((item) => item.findingId !== findingId);
+
+      return {
+        ...current,
+        study: {
+          ...current.study,
+          findingCount: nextFindings.length,
+        },
+        findings: nextFindings,
+        measurements: current.measurements.filter((measurement) => measurement.findingId !== findingId),
+        report: {
+          ...current.report,
+          findings: {
+            ...current.report.findings,
+            linkedFindingIds: current.report.findings.linkedFindingIds.filter((id) => id !== findingId),
+          },
+        },
+        actionLogs: [
+          createLocalActionLog(
+            current.study.studyId,
+            "user",
+            "delete_finding",
+            finding.source === "manual"
+              ? `Deleted manual finding ${finding.label} and its measurements.`
+              : `Deleted finding ${finding.label} from the current workspace.`,
+          ),
+          ...current.actionLogs,
+        ],
+      };
+    });
+
+    setSelectedFindingId(nextSelectedFinding?.findingId);
+    if (nextSelectedFinding) {
+      setCurrentSeriesId(nextSelectedFinding.linkedSeriesId);
+      setFocusedSection(nextSelectedFinding.linkedReportSection);
+      setFindingJumpNonce((value) => value + 1);
+    }
+
+    if (modelDraft?.evidenceUsed.includes(findingId)) {
+      setModelDraft(null);
+      setModelDraftMeta(null);
+    }
   }
 
   function applyDraftToFindings() {
@@ -478,7 +955,18 @@ export function WorkstationClient({
                     <br />
                     Slice: {selectedFinding.linkedSliceIndex}
                     <br />
-                    Measurement: {selectedMeasurement ? `${selectedMeasurement.longAxisMm} x ${selectedMeasurement.shortAxisMm} mm, mean HU ${selectedMeasurement.meanHU ?? "-"}` : "none"}
+                    Stored measurement: {selectedMeasurement ? formatMeasurementSummary(selectedMeasurement) : "none"}
+                    <br />
+                    {selectedManualMeasurements.length === 1 ? "Manual measurement" : "Manual measurements"}:
+                    {selectedManualMeasurements.length > 0 ? (
+                      <ul className="manual-measurement-list">
+                        {selectedManualMeasurements.map((measurement) => (
+                          <li key={measurement.measurementId}>{formatManualMeasurement(measurement)}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      " none"
+                    )}
                   </div>
                 ) : (
                   <div className="tiny" style={{ marginTop: 6 }}>No finding selected.</div>
@@ -545,6 +1033,50 @@ export function WorkstationClient({
               </button>
             </div>
 
+            <div className="measurement-tool-panel">
+              <div>
+                <strong>Measurement</strong>
+                <div className="tiny" style={{ color: "rgba(226,232,240,0.82)", marginTop: 4 }}>
+                  {measurementMessage}
+                </div>
+              </div>
+              <div className="toolbar measurement-toolbar">
+                <button
+                  className="button primary"
+                  disabled={measurementMode === "placing-first" || measurementMode === "placing-second"}
+                  onClick={beginMeasurement}
+                >
+                  Start Measurement
+                </button>
+                <button className="button ghost" disabled={measurementMode === "idle"} onClick={cancelMeasurement}>
+                  Cancel
+                </button>
+                <button className="button ghost" disabled={!draftMeasurement} onClick={clearMeasurement}>
+                  Clear Draft
+                </button>
+                <button className="button ghost" disabled={manualMeasurements.length === 0} onClick={clearAllManualMeasurements}>
+                  Clear All Measurements
+                </button>
+                <button
+                  className="button ghost"
+                  disabled={!canAttachMeasurement}
+                  onClick={attachMeasurementToSelectedFinding}
+                >
+                  Attach to Selected Finding
+                </button>
+                <button
+                  className="button ghost"
+                  disabled={!measurementComplete}
+                  onClick={createManualFindingFromMeasurement}
+                >
+                  Create Manual Finding
+                </button>
+              </div>
+              <div className="tiny measurement-helper-text">
+                {attachMeasurementHelper}
+              </div>
+            </div>
+
             {viewerMode === "full-stack" ? (
               <div className="stack" style={{ marginTop: 14 }}>
                 <CTStackViewer
@@ -553,6 +1085,10 @@ export function WorkstationClient({
                   height="420px"
                   initialStackIndex={130}
                   marker={selectedFinding ? selectedFindingMarker : undefined}
+                  measurementCursorActive={measurementMode === "placing-first" || measurementMode === "placing-second"}
+                  measurements={visibleMeasurementOverlays}
+                  onImageClick={recordMeasurementPoint}
+                  onStateChange={setStackViewerState}
                   showMetadata={false}
                   targetSliceIndex={selectedFinding?.linkedSliceIndex}
                   targetSliceKey={selectedFindingId ? `${selectedFindingId}:${findingJumpNonce}` : undefined}
@@ -584,7 +1120,10 @@ export function WorkstationClient({
                   </div>
                 </div>
 
-                <div className="key-image-frame">
+                <div
+                  className={`key-image-frame ${measurementMode === "placing-first" || measurementMode === "placing-second" ? "measurement-active" : ""}`}
+                  onClick={handleKeyImageMeasurementClick}
+                >
                   <img
                     className="viewer-image"
                     src={`/api/images/${encodeURIComponent(selectedImage.imageId)}`}
@@ -595,6 +1134,7 @@ export function WorkstationClient({
                     note={keyImageMarkerNote}
                     visible={keyImageMarkerVisible}
                   />
+                  <CTMeasurementOverlay measurements={visibleMeasurementOverlays} />
                 </div>
               </div>
             ) : (
@@ -627,7 +1167,7 @@ export function WorkstationClient({
                 <span className="badge">linked slice: {selectedConfirmedFinding?.linkedSliceIndex ?? "-"}</span>
               </div>
               <div className="tiny" style={{ marginTop: 10 }}>
-                Measurement: {selectedConfirmedMeasurement ? `${selectedConfirmedMeasurement.longAxisMm} x ${selectedConfirmedMeasurement.shortAxisMm} mm, mean HU ${selectedConfirmedMeasurement.meanHU ?? "-"}` : "No confirmed finding measurement selected."}
+                Measurement: {selectedConfirmedMeasurement ? formatMeasurementSummary(selectedConfirmedMeasurement) : "No confirmed finding measurement selected."}
               </div>
               <div className="tiny" style={{ marginTop: 6 }}>
                 Generate and review draft text inside Report Workspace / Findings.
@@ -669,6 +1209,17 @@ export function WorkstationClient({
             <div className="stack findings-panel-list" style={{ marginTop: 12 }}>
               {bundle.findings.map((item) => (
                 <div key={item.findingId} className={`finding-card finding-card-compact ${selectedFindingId === item.findingId ? "active" : ""}`}>
+                  <button
+                    aria-label={`Delete finding ${item.label}`}
+                    className="finding-delete-button"
+                    title="Delete finding"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteFinding(item.findingId);
+                    }}
+                  >
+                    ×
+                  </button>
                   <button className="link-button" onClick={() => focusFinding(item.findingId)}><strong>{item.label}</strong></button>
                   <div className="tiny" style={{ marginTop: 6 }}>{item.category} / {item.sizeText} / risk {item.riskLevel} / conf {item.confidence}</div>
                   <div className="tiny" style={{ marginTop: 6 }}>{item.narrative}</div>
@@ -676,6 +1227,7 @@ export function WorkstationClient({
                     AI candidate finding. It is not generated by the report draft button.
                   </div>
                   <div className="badge-row" style={{ marginTop: 8 }}>
+                    <span className="badge">{item.source}</span>
                     <span className={`badge ${item.status === "dismissed" ? "danger" : item.status === "confirmed" ? "accent" : "warn"}`}>{item.status}</span>
                     <button className="button" onClick={() => void updateFindingStatus(item.findingId, "confirmed")}>Confirm</button>
                     <button className="button ghost" onClick={() => void updateFindingStatus(item.findingId, "dismissed")}>Dismiss</button>
@@ -739,7 +1291,7 @@ export function WorkstationClient({
                             {finding.sizeText} / confidence {finding.confidence} / slice {finding.linkedSliceIndex}
                           </div>
                           <div className="tiny" style={{ marginTop: 6 }}>
-                            Measurement: {measurement ? `${measurement.longAxisMm} x ${measurement.shortAxisMm} mm, meanHU ${measurement.meanHU ?? "-"}` : "none"}
+                            Measurement: {measurement ? formatMeasurementSummary(measurement) : "none"}
                           </div>
                         </div>
                       );
@@ -795,6 +1347,11 @@ export function WorkstationClient({
                 {dismissedFindingStillInFinalText ? (
                   <div className="badge warn">
                     Final report text may still contain a dismissed finding. Review before saving.
+                  </div>
+                ) : null}
+                {deletedFindingStillInFinalText ? (
+                  <div className="badge warn">
+                    Final report text may still contain a deleted finding. Review before saving.
                   </div>
                 ) : null}
                 <textarea

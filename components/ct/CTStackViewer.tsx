@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { WheelEvent } from "react";
+import type { MouseEvent, WheelEvent } from "react";
 import { CTMarkerOverlay } from "@/components/ct/CTMarkerOverlay";
 import type { CTMarkerOverlayMarker } from "@/components/ct/CTMarkerOverlay";
+import { CTMeasurementOverlay, getNormalizedImagePoint } from "@/components/ct/CTMeasurementOverlay";
+import type { CTMeasurementOverlayItem, MeasurementPoint } from "@/components/ct/CTMeasurementOverlay";
 
 const DEFAULT_INITIAL_STACK_INDEX = 130;
 let renderingEngineCounter = 0;
 
-type WindowPreset = "lung" | "mediastinum" | "bone";
+export type WindowPreset = "lung" | "mediastinum" | "bone";
 
 const WINDOW_PRESETS: Record<WindowPreset, { label: string; center: number; width: number }> = {
   lung: { label: "Lung", center: -600, width: 1500 },
@@ -44,6 +46,7 @@ export type CtStackViewerState = {
   manifest: CtStackManifest | null;
   status: ViewerStatus;
   errorMessage: string | null;
+  windowPreset: WindowPreset;
 };
 
 type ViewerStatus = "idle" | "loading-manifest" | "initializing-viewer" | "ready" | "error";
@@ -54,11 +57,14 @@ type CTStackViewerProps = {
   height?: string;
   initialStackIndex?: number;
   onStateChange?: (state: CtStackViewerState) => void;
+  onImageClick?: (point: MeasurementPoint) => void;
   selectedSliceIndex?: number;
   selectedSliceMode?: "instanceNumber" | "stackIndex";
   showDeveloperPreview?: boolean;
   showMetadata?: boolean;
   marker?: CTMarkerOverlayMarker | null;
+  measurementCursorActive?: boolean;
+  measurements?: CTMeasurementOverlayItem[];
   targetSliceIndex?: number;
   targetSliceKey?: string;
   targetSliceMode?: "instanceNumber" | "stackIndex";
@@ -113,12 +119,15 @@ export function CTStackViewer({
   compact = false,
   height,
   initialStackIndex = DEFAULT_INITIAL_STACK_INDEX,
+  onImageClick,
   onStateChange,
   selectedSliceIndex,
   selectedSliceMode = "instanceNumber",
   showDeveloperPreview = false,
   showMetadata = true,
   marker,
+  measurementCursorActive = false,
+  measurements = [],
   targetSliceIndex,
   targetSliceKey,
   targetSliceMode,
@@ -294,8 +303,9 @@ export function CTStackViewer({
       manifest,
       status,
       errorMessage,
+      windowPreset,
     });
-  }, [currentIndex, currentSlice, errorMessage, manifest, onStateChange, status]);
+  }, [currentIndex, currentSlice, errorMessage, manifest, onStateChange, status, windowPreset]);
 
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
@@ -308,17 +318,31 @@ export function CTStackViewer({
     [currentIndex, setViewportIndex, status],
   );
 
+  const handleImageClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!onImageClick) return;
+
+      const point = getNormalizedImagePoint(event.currentTarget, event);
+      if (!point) return;
+
+      onImageClick(point);
+    },
+    [onImageClick],
+  );
+
   const imageIdPreview = imageIdsRef.current.slice(Math.max(0, currentIndex - 2), currentIndex + 3);
 
   return (
     <div className={`ct-stack-viewer ${compact ? "compact" : ""}`}>
       <div
-        className="cornerstone-viewport-frame"
+        className={`cornerstone-viewport-frame ${measurementCursorActive ? "measurement-active" : ""}`}
+        onClick={handleImageClick}
         onWheel={handleWheel}
         style={height ? { height } : undefined}
       >
         <div ref={elementRef} className="cornerstone-viewport" />
         <CTMarkerOverlay marker={marker} note={markerNote} visible={markerVisible} />
+        <CTMeasurementOverlay measurements={measurements} />
         {status !== "ready" ? (
           <div className="cornerstone-viewport-overlay">
             <strong>{status === "error" ? "Viewer initialization failed" : "Loading CT stack..."}</strong>
