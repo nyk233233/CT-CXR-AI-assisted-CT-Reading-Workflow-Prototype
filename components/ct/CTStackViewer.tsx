@@ -10,6 +10,7 @@ import type { CTMeasurementOverlayItem, MeasurementPoint } from "@/components/ct
 const DEFAULT_INITIAL_STACK_INDEX = 130;
 let renderingEngineCounter = 0;
 
+export type CtStackDataSource = "local" | "orthanc-dicomweb";
 export type WindowPreset = "lung" | "mediastinum" | "bone";
 
 const WINDOW_PRESETS: Record<WindowPreset, { label: string; center: number; width: number }> = {
@@ -28,6 +29,7 @@ export type CtStackSlice = {
 
 export type CtStackManifest = {
   caseId: string;
+  source?: CtStackDataSource;
   studyId?: string;
   seriesId: string;
   numSlices: number;
@@ -38,6 +40,25 @@ export type CtStackManifest = {
   rescaleSlope?: number;
   rescaleIntercept?: number;
   slices: CtStackSlice[];
+};
+
+type OrthancCtManifestResponse = {
+  source: "orthanc-dicomweb";
+  caseId: string;
+  studyInstanceUid: string;
+  ctSeriesInstanceUid: string;
+  count: number;
+  rows?: number | null;
+  columns?: number | null;
+  pixelSpacing?: [number, number] | null;
+  sliceThickness?: number | null;
+  rescaleSlope?: number | null;
+  rescaleIntercept?: number | null;
+  instances: Array<{
+    sopInstanceUid: string;
+    instanceNumber?: number | null;
+    zPosition?: number | null;
+  }>;
 };
 
 export type CtStackViewerState = {
@@ -54,6 +75,7 @@ type ViewerStatus = "idle" | "loading-manifest" | "initializing-viewer" | "ready
 type CTStackViewerProps = {
   caseId: string;
   compact?: boolean;
+  dataSource?: CtStackDataSource;
   height?: string;
   initialStackIndex?: number;
   onStateChange?: (state: CtStackViewerState) => void;
@@ -114,9 +136,72 @@ function resolveStackIndex(
   return nearest?.stackIndex;
 }
 
+function normalizeLocalManifest(rawManifest: CtStackManifest): CtStackManifest {
+  return {
+    ...rawManifest,
+    source: rawManifest.source ?? "local",
+    slices: [...rawManifest.slices].sort((a, b) => a.stackIndex - b.stackIndex),
+  };
+}
+
+function normalizeOrthancManifest(rawManifest: OrthancCtManifestResponse): CtStackManifest {
+  const slices = rawManifest.instances.map<CtStackSlice>((instance, index) => ({
+    sopInstanceUid: instance.sopInstanceUid,
+    stackIndex: index,
+    sliceIndex: instance.instanceNumber ?? index,
+    instanceNumber: instance.instanceNumber ?? undefined,
+    zPosition: instance.zPosition ?? undefined,
+  }));
+
+  return {
+    caseId: rawManifest.caseId,
+    source: "orthanc-dicomweb",
+    studyId: rawManifest.studyInstanceUid,
+    seriesId: rawManifest.ctSeriesInstanceUid,
+    numSlices: rawManifest.count,
+    rows: rawManifest.rows ?? 0,
+    columns: rawManifest.columns ?? 0,
+    pixelSpacing: rawManifest.pixelSpacing ?? null,
+    sliceThickness: rawManifest.sliceThickness ?? undefined,
+    rescaleSlope: rawManifest.rescaleSlope ?? undefined,
+    rescaleIntercept: rawManifest.rescaleIntercept ?? undefined,
+    slices,
+  };
+}
+
+function buildManifestUrl(caseId: string, dataSource: CtStackDataSource): string {
+  if (dataSource === "orthanc-dicomweb") {
+    return "/api/dicomweb/lidc-case-002/manifest";
+  }
+
+  return `/api/dicom/local/${caseId}/manifest`;
+}
+
+function buildImageIds(
+  manifest: CtStackManifest,
+  caseId: string,
+  dataSource: CtStackDataSource,
+  origin: string,
+): string[] {
+  if (dataSource === "orthanc-dicomweb") {
+    return manifest.slices.map((slice) => {
+      if (!slice.sopInstanceUid) {
+        throw new Error(`Orthanc slice is missing SOPInstanceUID at stackIndex ${slice.stackIndex}`);
+      }
+
+      return `wadouri:${origin}/api/dicomweb/lidc-case-002/instances/${encodeURIComponent(slice.sopInstanceUid)}/dicom`;
+    });
+  }
+
+  return manifest.slices.map(
+    (slice) => `wadouri:${origin}/api/dicom/local/${caseId}/${slice.stackIndex}`,
+  );
+}
+
 export function CTStackViewer({
   caseId,
   compact = false,
+  dataSource = "local",
   height,
   initialStackIndex = DEFAULT_INITIAL_STACK_INDEX,
   onImageClick,
@@ -191,7 +276,7 @@ export function CTStackViewer({
         setStatus("loading-manifest");
         setErrorMessage(null);
 
-        const manifestResponse = await fetch(`/api/dicom/local/${caseId}/manifest`, {
+        const manifestResponse = await fetch(buildManifestUrl(caseId, dataSource), {
           cache: "no-store",
         });
 
@@ -199,15 +284,15 @@ export function CTStackViewer({
           throw new Error(`Manifest request failed: ${manifestResponse.status} ${manifestResponse.statusText}`);
         }
 
-        const loadedManifest = (await manifestResponse.json()) as CtStackManifest;
+        const loadedManifest = await manifestResponse.json();
         if (cancelled) return;
 
-        const sortedSlices = [...loadedManifest.slices].sort((a, b) => a.stackIndex - b.stackIndex);
-        const normalizedManifest = { ...loadedManifest, slices: sortedSlices };
+        const normalizedManifest =
+          dataSource === "orthanc-dicomweb"
+            ? normalizeOrthancManifest(loadedManifest as OrthancCtManifestResponse)
+            : normalizeLocalManifest(loadedManifest as CtStackManifest);
         const origin = window.location.origin;
-        const imageIds = sortedSlices.map(
-          (slice) => `wadouri:${origin}/api/dicom/local/${caseId}/${slice.stackIndex}`,
-        );
+        const imageIds = buildImageIds(normalizedManifest, caseId, dataSource, origin);
         const initialIndex = clampIndex(
           resolveStackIndex(normalizedManifest, effectiveTargetSliceIndex, effectiveTargetSliceMode) ?? initialStackIndex,
           Math.max(0, normalizedManifest.numSlices - 1),
@@ -271,7 +356,7 @@ export function CTStackViewer({
       }
       renderingEngineRef.current = null;
     };
-  }, [caseId, initialStackIndex]);
+  }, [caseId, dataSource, initialStackIndex]);
 
   useEffect(() => {
     if (status !== "ready" || !viewportRef.current) return;
@@ -414,6 +499,7 @@ export function CTStackViewer({
             <h3 className="section-title">Stack Metadata</h3>
             <div className="viewer-lab-metadata">
               <span>caseId</span><strong>{manifest?.caseId ?? "-"}</strong>
+              <span>source</span><strong>{manifest?.source ?? "local"}</strong>
               <span>seriesId</span><strong>{manifest?.seriesId ?? "-"}</strong>
               <span>numSlices</span><strong>{manifest?.numSlices ?? "-"}</strong>
               <span>matrix</span><strong>{manifest ? `${manifest.rows} x ${manifest.columns}` : "-"}</strong>

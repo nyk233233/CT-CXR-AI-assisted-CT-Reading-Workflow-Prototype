@@ -546,6 +546,17 @@ select {
   align-items: start;
 }
 
+.viewer-lab-source-toggle {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
 .cornerstone-viewport-frame {
   position: relative;
   height: clamp(420px, 58vh, 620px);

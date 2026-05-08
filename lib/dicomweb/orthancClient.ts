@@ -57,6 +57,27 @@ export async function orthancFetchJson<T = DicomWebDataset[]>(
   return (await response.json()) as T;
 }
 
+export async function orthancFetchBytes(
+  path: string,
+  accept = "application/dicom",
+): Promise<ArrayBuffer> {
+  const config = getOrthancConfig();
+  const response = await fetch(buildUrl(path, config), {
+    cache: "no-store",
+    headers: {
+      Accept: accept,
+      Authorization: buildAuthHeader(config),
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText);
+    throw new OrthancHttpError(response.status, detail || response.statusText);
+  }
+
+  return response.arrayBuffer();
+}
+
 export function queryStudies(): Promise<DicomWebDataset[]> {
   return orthancFetchJson<DicomWebDataset[]>("/dicom-web/studies");
 }
