@@ -209,6 +209,7 @@ const findingsLidc002: Finding[] = [
     linkedReportSection: "findings",
     narrative: "Pulmonary nodule candidate on the selected lung-window CT image.",
     features: ["lung-window", "AI candidate", "LIDC annotation"],
+    marker: { x: 0.58, y: 0.46, shape: "box", label: "Nodule 1" },
   },
   {
     findingId: "lidc-nodule-002",
@@ -225,6 +226,7 @@ const findingsLidc002: Finding[] = [
     linkedReportSection: "findings",
     narrative: "Small pulmonary nodule candidate in the upper lung key image.",
     features: ["lung-window", "AI candidate", "upper lung"],
+    marker: { x: 0.42, y: 0.38, shape: "circle", label: "Nodule 2" },
   },
   {
     findingId: "lidc-pleural-001",
@@ -241,6 +243,7 @@ const findingsLidc002: Finding[] = [
     linkedReportSection: "findings",
     narrative: "Pleural-based opacity candidate on the lower lung key image.",
     features: ["lung-window", "AI candidate", "lower lung"],
+    marker: { x: 0.68, y: 0.62, shape: "crosshair", label: "Pleural opacity" },
   },
 ];
 

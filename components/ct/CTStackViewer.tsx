@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
+import { CTMarkerOverlay } from "@/components/ct/CTMarkerOverlay";
+import type { CTMarkerOverlayMarker } from "@/components/ct/CTMarkerOverlay";
 
 const DEFAULT_INITIAL_STACK_INDEX = 130;
 let renderingEngineCounter = 0;
@@ -56,6 +58,7 @@ type CTStackViewerProps = {
   selectedSliceMode?: "instanceNumber" | "stackIndex";
   showDeveloperPreview?: boolean;
   showMetadata?: boolean;
+  marker?: CTMarkerOverlayMarker | null;
   targetSliceIndex?: number;
   targetSliceKey?: string;
   targetSliceMode?: "instanceNumber" | "stackIndex";
@@ -115,6 +118,7 @@ export function CTStackViewer({
   selectedSliceMode = "instanceNumber",
   showDeveloperPreview = false,
   showMetadata = true,
+  marker,
   targetSliceIndex,
   targetSliceKey,
   targetSliceMode,
@@ -141,6 +145,20 @@ export function CTStackViewer({
     () => manifest?.slices.find((slice) => slice.stackIndex === currentIndex) ?? null,
     [currentIndex, manifest],
   );
+  const markerVisible = Boolean(
+    marker &&
+      currentSlice &&
+      typeof marker.linkedSliceIndex === "number" &&
+      (currentSlice.instanceNumber === marker.linkedSliceIndex || currentSlice.sliceIndex === marker.linkedSliceIndex),
+  );
+  const markerNote =
+    marker === undefined
+      ? undefined
+      : marker
+        ? markerVisible
+          ? "Mock marker overlay for workflow demonstration."
+          : `Selected finding marker is linked to slice ${marker.linkedSliceIndex ?? "-"}.`
+        : "No marker available for selected finding.";
 
   const maxIndex = manifest ? Math.max(0, manifest.numSlices - 1) : 0;
 
@@ -300,6 +318,7 @@ export function CTStackViewer({
         style={height ? { height } : undefined}
       >
         <div ref={elementRef} className="cornerstone-viewport" />
+        <CTMarkerOverlay marker={marker} note={markerNote} visible={markerVisible} />
         {status !== "ready" ? (
           <div className="cornerstone-viewport-overlay">
             <strong>{status === "error" ? "Viewer initialization failed" : "Loading CT stack..."}</strong>

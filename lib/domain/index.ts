@@ -65,6 +65,16 @@ export interface MeasurementSummary {
   notes: string;
 }
 
+export type FindingMarkerShape = "crosshair" | "circle" | "box";
+
+export interface FindingMarker {
+  x: number;
+  y: number;
+  radius?: number;
+  shape?: FindingMarkerShape;
+  label?: string;
+}
+
 export interface Finding {
   findingId: ID;
   studyId: ID;
@@ -80,6 +90,7 @@ export interface Finding {
   linkedReportSection: ReportSectionKey;
   narrative: string;
   features: string[];
+  marker?: FindingMarker;
 }
 
 export interface ReportSection {

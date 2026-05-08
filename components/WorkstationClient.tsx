@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { CTMarkerOverlay } from "@/components/ct/CTMarkerOverlay";
+import type { CTMarkerOverlayMarker } from "@/components/ct/CTMarkerOverlay";
 import { CTStackViewer } from "@/components/ct/CTStackViewer";
 import type {
   ActionLogEntry,
+  Finding,
   ImageRef,
   MeasurementSummary,
   ReportAssistInput,
@@ -56,6 +59,16 @@ function estimateReportTextareaRows(text: string): number {
   const visualLineCount = text.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 92)), 0);
 
   return Math.max(12, visualLineCount + 2);
+}
+
+function buildMarkerFromFinding(finding?: Finding): CTMarkerOverlayMarker | null {
+  if (!finding?.marker) return null;
+
+  return {
+    ...finding.marker,
+    status: finding.status,
+    linkedSliceIndex: finding.linkedSliceIndex,
+  };
 }
 
 function buildLocalReportAssistInput(
@@ -117,12 +130,17 @@ export function WorkstationClient({
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [showFullTrace, setShowFullTrace] = useState(false);
   const [viewerMode, setViewerMode] = useState<"key-images" | "full-stack">("key-images");
+  const [findingJumpNonce, setFindingJumpNonce] = useState(0);
   const centerWorkspaceRef = useRef<HTMLElement | null>(null);
   const [topWorkspaceHeight, setTopWorkspaceHeight] = useState<number | undefined>();
 
   const selectedFinding = useMemo(
     () => bundle.findings.find((item) => item.findingId === selectedFindingId),
     [bundle.findings, selectedFindingId],
+  );
+  const selectedFindingMarker = useMemo(
+    () => buildMarkerFromFinding(selectedFinding),
+    [selectedFinding],
   );
 
   const selectedMeasurement = useMemo<MeasurementSummary | undefined>(
@@ -152,6 +170,19 @@ export function WorkstationClient({
 
     return realKeyImages.find((item) => item.imageId === selectedImageId) ?? findDefaultKeyImage(realKeyImages);
   }, [hasRealCtKeyImages, realKeyImages, selectedImageId]);
+  const keyImageMarkerVisible = Boolean(
+    selectedFindingMarker &&
+      selectedImage &&
+      typeof selectedImage.sliceIndex === "number" &&
+      selectedImage.sliceIndex === selectedFinding?.linkedSliceIndex,
+  );
+  const keyImageMarkerNote = selectedFinding
+    ? selectedFindingMarker
+      ? keyImageMarkerVisible
+        ? "Mock marker overlay for workflow demonstration."
+        : `Marker hidden: selected finding is linked to slice ${selectedFinding.linkedSliceIndex}.`
+      : "No marker available for selected finding."
+    : undefined;
 
   const draftReadinessMessage =
     confirmedFindings.length > 0
@@ -235,6 +266,12 @@ export function WorkstationClient({
     setSelectedFindingId(findingId);
     setCurrentSeriesId(finding.linkedSeriesId);
     setFocusedSection(finding.linkedReportSection);
+    setFindingJumpNonce((value) => value + 1);
+
+    if (viewerMode === "key-images" && hasRealCtKeyImages) {
+      const linkedImage = realKeyImages.find((item) => item.sliceIndex === finding.linkedSliceIndex);
+      if (linkedImage) setSelectedImageId(linkedImage.imageId);
+    }
   }
 
   async function loadAiInputPreview(section: "findings" | "impression") {
@@ -515,9 +552,10 @@ export function WorkstationClient({
                   compact
                   height="420px"
                   initialStackIndex={130}
+                  marker={selectedFinding ? selectedFindingMarker : undefined}
                   showMetadata={false}
                   targetSliceIndex={selectedFinding?.linkedSliceIndex}
-                  targetSliceKey={selectedFindingId}
+                  targetSliceKey={selectedFindingId ? `${selectedFindingId}:${findingJumpNonce}` : undefined}
                   targetSliceMode="instanceNumber"
                 />
               </div>
@@ -546,21 +584,16 @@ export function WorkstationClient({
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    background: "#020617",
-                    display: "grid",
-                    placeItems: "center",
-                    minHeight: 360,
-                  }}
-                >
+                <div className="key-image-frame">
                   <img
                     className="viewer-image"
                     src={`/api/images/${encodeURIComponent(selectedImage.imageId)}`}
                     alt={`${keyImageDisplayLabel(selectedImage)} lung-window CT key image`}
+                  />
+                  <CTMarkerOverlay
+                    marker={selectedFindingMarker}
+                    note={keyImageMarkerNote}
+                    visible={keyImageMarkerVisible}
                   />
                 </div>
               </div>

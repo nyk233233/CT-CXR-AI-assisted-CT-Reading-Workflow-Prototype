@@ -336,6 +336,25 @@ select {
   object-fit: contain;
 }
 
+.key-image-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  height: clamp(360px, 42vw, 520px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background: #020617;
+}
+
+.key-image-frame .viewer-image {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+
 .viewer-stage {
   height: 320px;
   margin-top: 16px;
@@ -486,6 +505,125 @@ select {
   text-align: center;
   color: #e2e8f0;
   background: rgba(2, 6, 23, 0.72);
+}
+
+.ct-marker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.ct-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #f59e0b;
+  filter: drop-shadow(0 2px 8px rgba(2, 6, 23, 0.85));
+}
+
+.ct-marker-confirmed {
+  color: #2dd4bf;
+}
+
+.ct-marker-detected {
+  color: #fbbf24;
+}
+
+.ct-marker-dismissed {
+  color: #cbd5e1;
+  opacity: 0.86;
+}
+
+.ct-marker-box,
+.ct-marker-circle {
+  width: 52px;
+  height: 52px;
+  border: 2px solid currentColor;
+}
+
+.ct-marker-dismissed.ct-marker-box,
+.ct-marker-dismissed.ct-marker-circle {
+  border-style: dashed;
+}
+
+.ct-marker-box {
+  border-radius: 8px;
+}
+
+.ct-marker-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+}
+
+.ct-marker-crosshair {
+  width: 58px;
+  height: 58px;
+}
+
+.ct-marker-crosshair::before,
+.ct-marker-crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.ct-marker-crosshair::before {
+  width: 58px;
+  height: 2px;
+}
+
+.ct-marker-crosshair::after {
+  width: 2px;
+  height: 58px;
+}
+
+.ct-marker-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.75);
+  transform: translate(-50%, -50%);
+}
+
+.ct-marker-label {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  max-width: 150px;
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.82);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ct-marker-note {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: min(420px, calc(100% - 24px));
+  padding: 6px 9px;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.76);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .viewer-lab-metadata {
